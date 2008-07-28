@@ -9,16 +9,22 @@ public class Mongo {
     DBApiLayer db = DBProvider.get("mongo");
     DBCollection test = db.getCollection("test");
 
+    JSObjectBase remove = new JSObjectBase();
+    test.remove(remove);
+    
     JSObjectBase obj = new JSObjectBase();
     obj.set("name", "mongo");
+    obj.set("value", 123);
     test.save(obj);
 
     JSObjectBase query = new JSObjectBase();
     query.set("name", "mongo");
     for (Iterator<JSObject> it = test.find(query); it.hasNext(); ){
       JSObject o = it.next();
-      System.out.println("got result _id: "  + o.get("_id").toString());
-      System.out.println("got result name: " + o.get("name").toString());
+      System.out.println("got result _id: "   + o.get("_id").toString());
+      System.out.println("got result _ns: "   + o.get("_ns").toString());
+      System.out.println("got result name: "  + o.get("name").toString());
+      System.out.println("got result value: " + o.get("value").toString());
     }
   }
 
