@@ -3,6 +3,7 @@ require 'java'
 
 Dir['/Users/aman/code/10gen/appserver/{build,include/*.jar}'].each{ |cp| $CLASSPATH << cp }
 import 'ed.db.DBProvider'
+import 'ed.db.DBCursor'
 import 'ed.js.JSObjectBase'
 
 class Mongo
@@ -12,7 +13,17 @@ class Mongo
     def initialize results
       @results = results
     end
+
+    def limit n
+      @results.limit(n)
+      self
+    end
     
+    def skip n
+      @results.skip(n)
+      self
+    end
+
     def each
       @results.each do |obj|
         yield(obj.keySet.inject({}) do |hash, key|
@@ -21,7 +32,8 @@ class Mongo
                                       val.toString
                                     else
                                       val
-                                    end
+                                    end unless key =~ /^_(ns|save|update)$/
+          hash
         end)
       end
     end
@@ -50,12 +62,11 @@ class Mongo
         super
       end
 
-      ret = @collection.__send__(meth, obj, *args)
 
       if meth == :find
-        Results.new(ret)
+        Results.new DBCursor.new(@collection, obj, nil, nil)
       else
-        ret
+        ret = @collection.__send__(meth, obj, *args)
       end
     end
   end
@@ -83,7 +94,14 @@ test.save(:from => 'ruby',
           :name => 'something')
 
 pp test[:from => 'ruby']
-pp test.find(:from => 'ruby').map
+pp test.find(:from => 'ruby').limit(1).skip(1).map
+
+=begin todo
+
+skip/limit/sort on cursors
+convert to/from nested hashes
+
+=end
 
 __END__
 
