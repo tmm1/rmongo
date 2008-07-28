@@ -20,4 +20,4 @@ Setup mongo (on OSX):
   make CFLAGS="-I/opt/local/include -L/opt/local/lib -lboost_system"
   
   mkdir /tmp/data
-  sudo ./db run --nojni --dbpath /tmp/data
+  sudo ./db --dbpath /tmp/data --nojni run
