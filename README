@@ -3,7 +3,7 @@ Setup the appserver:
   download from http://www.10gen.com/wiki/SDK
   extract to ~/code/10gen/
   delete ~/code/10gen/appserver/src/main/ed/lang/ruby
-  update 10gen.properties and the classpath at the top of mongo.rb to point to the appserver directory
+  update 10gen.properties, run.sh and mongo.rb to point to the appserver directory
 
 Setup mongo (on OSX):
 
