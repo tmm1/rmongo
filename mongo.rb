@@ -19,6 +19,8 @@ class Mongo
           hash.update key.to_sym => case val = obj.get(key)
                                     when Java::EdDb::ObjectId, Java::EdJs::JSString
                                       val.toString
+                                    else
+                                      val
                                     end
         end)
       end
@@ -82,3 +84,23 @@ test.save(:from => 'ruby',
 
 pp test[:from => 'ruby']
 pp test.find(:from => 'ruby').map
+
+__END__
+
+{:_id=>"488d23ab771f9a4600723d6c",
+ :name=>"mongo",
+ :time=>1217209259.0,
+ :from=>"ruby",
+ :num=>123.0,
+ :_ns=>"test"}
+
+[{:_id=>"488d23ab771f9a4600723d6c",
+  :name=>"mongo",
+  :time=>1217209259.0,
+  :from=>"ruby",
+  :num=>123.0,
+  :_ns=>"test"},
+ {:_id=>"488d23ab771f9a4600723d6d",
+  :from=>"ruby",
+  :name=>"something",
+  :_ns=>"test"}]
