@@ -1,14 +1,23 @@
-git clone git://github.com/10gen/mongo
-cd mongo/db
+Setup the appserver:
 
-sudo port install boost pcre++
+  download from http://www.10gen.com/wiki/SDK
+  extract to ~/code/10gen/
+  delete ~/code/10gen/appserver/src/main/ed/lang/ruby
+  update 10gen.properties and the classpath at the top of mongo.rb to point to the appserver directory
 
-for i in system thread filesystem; do
-  sudo ln -s /opt/local/lib/libboost_${i}-mt.dylib /opt/local/lib/libboost_${i}.dylib
-done
+Setup mongo (on OSX):
 
-make clean
-make CFLAGS="-I/opt/local/include -L/opt/local/lib -lboost_system"
-
-mkdir /tmp/data
-sudo ./db run --nojni --dbpath /tmp/data
+  git clone git://github.com/10gen/mongo
+  cd mongo/db
+  
+  sudo port install boost pcre++
+  
+  for i in system thread filesystem; do
+    sudo ln -s /opt/local/lib/libboost_${i}-mt.dylib /opt/local/lib/libboost_${i}.dylib
+  done
+  
+  make clean
+  make CFLAGS="-I/opt/local/include -L/opt/local/lib -lboost_system"
+  
+  mkdir /tmp/data
+  sudo ./db run --nojni --dbpath /tmp/data
