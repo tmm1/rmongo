@@ -30,12 +30,46 @@ class Mongo
       p [id, response, operation]
       
       # body
-      reserved, cursor, start, num = data.slice!(0,16).unpack('iNii')
-      p [reserved, cursor, start, num]
-      
+      something, reserved, cursor, start, num = data.slice!(0,20).unpack('iNiii')
+      p [something, reserved, cursor, start, num] # what is something?
+
       # bson
-      len = *data.slice!(0,4).unpack('i')
-      p [len, data]
+      seen = 0
+      while seen < num
+        len = *data.slice!(0,4).unpack('i')
+        if len > 0
+          while true
+            case type = data.slice!(0,1).unpack('c').first
+            when 0 # eoo
+              p :eoo
+              break
+
+            when 1 # number
+              str = ''
+              chr = "\0"
+              str += chr while chr = data.slice!(0,1).unpack('a').first and chr != "\0"
+              name = str
+
+              n = *data.slice!(0,8).unpack('d') # XXX why not in network byte order?
+              p [:num, name, n]
+
+            when 7 # oid
+              str = ''
+              chr = "\0"
+              str += chr while chr = data.slice!(0,1).unpack('a').first and chr != "\0"
+              name = str
+
+              base, inc = data.slice!(0,12).unpack('Ni')
+
+              p [:oid, name, base, inc]
+
+            else
+              p type
+            end
+          end
+        end
+        seen += 1
+      end
     end
     
     def send_data data
