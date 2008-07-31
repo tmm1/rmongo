@@ -84,8 +84,20 @@ module Mongo
                           data.read(:bson).inject([]){ |a, (k,v)| a[k.to_s.to_i] = v; a }
                         when 8 # bool
                           data.read(:byte) == 1 ? true : false
+                        when 9 # time
+                          Time.at data.read(:longlong)/1000.0
                         when 10 # nil
                           nil
+                        when 11 # regex
+                          source = data.read(:cstring)
+                          options = data.read(:cstring).split('')
+                          
+                          options = { 'i' => 1, 'm' => 2, 'x' => 4 }.inject(0) do |s, (o, n)|
+                            s |= n if options.include?(o)
+                            s
+                          end
+
+                          Regexp.new(source, options)
                         when 14 # symbol
                           data.read(:cstring).intern
                         end
@@ -139,9 +151,22 @@ module Mongo
             id = 8
             type = :byte
             value = value ? 1 : 0
+          when Time
+            id = 9
+            type = :longlong
+            value = value.to_i * 1000 + (value.tv_usec/1000)
           when NilClass
             id = 10
             type = nil
+          when Regexp
+            id = 11
+            type = proc{ |out|
+              out.write(:cstring, value.source)
+              out.write(:cstring, { 'i' => 1, 'm' => 2, 'x' => 4 }.inject('') do |s, (o, n)|
+                s += o if value.options & n > 0
+                s
+              end)
+            }
           when Symbol
             id = 14
             type = :cstring
@@ -149,7 +174,12 @@ module Mongo
 
           buf.write(:byte, id)
           buf.write(:cstring, key)
-          buf.write(type, value) if type
+
+          if type.respond_to? :call
+            type.call(buf)
+          elsif type
+            buf.write(type, value)
+          end
         end
 
         write(:int, buf.size+5)
@@ -281,9 +311,9 @@ if $0 =~ /bacon/ or $0 == __FILE__
       # { :ref => { :_ns => 'namespace',
       #             :_id => 'uuid' }      },
       { :boolean => true                },
-      # { :time => Time.at(Time.now.to_i) },
+      { :time => Time.at(Time.now.to_i) },
       { :null => nil                    },
-      # { :regex => /^.*?/                }
+      { :regex => /^.*?def/im           }
     ]. each do |bson|
 
       should "read and write bson with #{bson.keys.first}s" do
