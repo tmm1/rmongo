@@ -185,10 +185,23 @@ if $0 =~ /bacon/ or $0 == __FILE__
   
     { :byte => 0b10101010,
       :short => 100,
-      :int => 8192,
+      :int => 65536,0
       :long => 100_000_000,
       :longlong => 666_555_444_333_222_111,
       :cstring => 'hello',
+      :bson => [
+        { :num => 1                           },
+        { :symbol => :abc                     },
+        { :object => {}                       },
+        { :array => [1, 2, 3]                 },
+        { :string => 'abcdefg'                },
+        { :_id => 'uuid'                      },
+        { :_ns => 'namespace', :_id => 'uuid' },
+        { :boolean => true                    },
+        { :time => Time.at(Time.now.to_i)     },
+        { :null => nil                        },
+        { :regex => /^.*?/                    }
+      ]
     }.each do |type, values|
 
       should "read and write a #{type}" do
