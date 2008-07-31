@@ -86,6 +86,8 @@ module Mongo
                           data.read(:byte) == 1 ? true : false
                         when 10 # nil
                           nil
+                        when 14 # symbol
+                          data.read(:cstring).intern
                         end
           end
           
@@ -121,29 +123,33 @@ module Mongo
         data.each do |key,value|
           case value
           when Numeric
-            buf.write(:byte, 1)
-            buf.write(:cstring, key)
-            buf.write(:double, value)
+            id = 1
+            type = :double
           when String
-            buf.write(:byte, 2)
-            buf.write(:cstring, key)
-            buf.write(:cstring, value)
+            id = 2
+            type = :cstring
           when Hash
-            buf.write(:byte, 3)
-            buf.write(:cstring, key)
-            buf.write(:bson, value)
+            id = 3
+            type = :bson
           when Array
-            buf.write(:byte, 4)
-            buf.write(:cstring, key)
-            buf.write(:bson, value.enum_with_index.inject({}){ |h, (v, i)| h.update i => v })
+            id = 4
+            type = :bson
+            value = value.enum_with_index.inject({}){ |h, (v, i)| h.update i => v }
           when TrueClass, FalseClass
-            buf.write(:byte, 8)
-            buf.write(:cstring, key)
-            buf.write(:byte, value ? 1 : 0)
+            id = 8
+            type = :byte
+            value = value ? 1 : 0
           when NilClass
-            buf.write(:byte, 10)
-            buf.write(:cstring, key)
+            id = 10
+            type = nil
+          when Symbol
+            id = 14
+            type = :cstring
           end
+
+          buf.write(:byte, id)
+          buf.write(:cstring, key)
+          buf.write(type, value) if type
         end
 
         write(:int, buf.size+5)
@@ -267,7 +273,7 @@ if $0 =~ /bacon/ or $0 == __FILE__
     
     [
       { :num => 1                       },
-      # { :symbol => :abc                 },
+      { :symbol => :abc                 },
       { :object => {}                   },
       { :array => [1, 2, 3]             },
       { :string => 'abcdefg'            },
