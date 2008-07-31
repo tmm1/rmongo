@@ -30,8 +30,9 @@ class Mongo
       p [id, response, operation]
       
       # body
-      something, reserved, cursor, start, num = data.slice!(0,20).unpack('iNiii')
-      p [something, reserved, cursor, start, num] # what is something?
+      reserved, upper, lower, start, num = data.slice!(0,20).unpack('iNNii')
+      cursor = upper << 32 | lower
+      p [reserved, cursor, start, num]
 
       # bson
       seen = 0
