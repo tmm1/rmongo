@@ -65,70 +65,54 @@ module Mongo
     
     # to sort: { query : { ... } , orderby : { ... } }
     def find obj, &cb
-      buf = Buffer.new
-      
-      # header
-      buf.multi_write :int, id = @id+=1,
-                      :int, response = 0,
-                      :int, operation = 2004
+      data = send(2004) do |buf|
+        # body
+        buf.write :int,     reserved = 0,
+                  :cstring, namespace = 'default.test',
+                  :int,     skip = 0,
+                  :int,     ret = 0
 
-      # body
-      buf.multi_write :int,     reserved = 0,
-                      :cstring, namespace = 'default.test',
-                      :int,     skip = 0,
-                      :int,     ret = 0
-
-      # bson
-      buf.write :bson, obj
+        # bson
+        buf.write :bson, obj
+      end
 
       (@responses ||= {})[ @id ] = cb if cb
 
       callback{
-        send_data [ buf.size + 4 ].pack('i')
-        send_data buf.data
+        send_data [ data.size + 4 ].pack('i')
+        send_data data
       }
     end
 
     def insert obj
-      buf = Buffer.new
-      
-      # header
-      buf.multi_write :int, id = @id+=1,
-                      :int, response = 0,
-                      :int, operation = 2002
-
-      # body
-      buf.multi_write :int,     reserved = 0,
-                      :cstring, namespace = 'default.test'
-
-      # bson
-      buf.write :bson, obj
+      data = send(2002) do |buf|
+        # body
+        buf.write :int,     reserved = 0,
+                  :cstring, namespace = 'default.test'
+        # bson
+        buf.write :bson, obj
+      end
 
       callback{
-        send_data [ buf.size + 4 ].pack('i')
-        send_data buf.data
+        send_data [ data.size + 4 ].pack('i')
+        send_data data
       }
     end
 
     def remove obj
-      buf = Buffer.new
-      
-      # header
-      buf.multi_write :int, id = @id+=1,
-                      :int, response = 0,
-                      :int, operation = 2006
+      data = send(2006) do |buf|
+        # body
+        buf.write :int,     reserved = 0,
+                  :cstring, namespace = 'default.test',
+                  :int,     0
 
-      # body
-      buf.multi_write :int,     reserved = 0,
-                      :cstring, namespace = 'default.test',
-                      :int,     0
-
-      # bson
-      buf.write :bson, obj
+        # bson
+        buf.write :bson, obj
+      end
 
       callback{
-        send_data [ buf.size + 4 ].pack('i')
-        send_data buf.data
+        send_data [ data.size + 4 ].pack('i')
+        send_data data
       }
     end
 
@@ -149,7 +133,13 @@ module Mongo
       puts
     end
     
-    def refactor
+    def send(command_id, &cb)
+      buf = Buffer.new
+      buf.write :int, id = @id+=1,
+                :int, response = 0,
+                :int, operation = command_id
+      yield buf
+      buf.data
     end
   end
   
