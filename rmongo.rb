@@ -65,7 +65,7 @@ module Mongo
     
     # to sort: { query : { ... } , orderby : { ... } }
     def find obj, &cb
-      data = send(2004) do |buf|
+      send(2004) do |buf|
         # body
         buf.write :int,     reserved = 0,
                   :cstring, namespace = 'default.test',
@@ -77,30 +77,20 @@ module Mongo
       end
 
       (@responses ||= {})[ @id ] = cb if cb
-
-      callback{
-        send_data [ data.size + 4 ].pack('i')
-        send_data data
-      }
     end
 
     def insert obj
-      data = send(2002) do |buf|
+      send(2002) do |buf|
         # body
         buf.write :int,     reserved = 0,
                   :cstring, namespace = 'default.test'
         # bson
         buf.write :bson, obj
       end
-
-      callback{
-        send_data [ data.size + 4 ].pack('i')
-        send_data data
-      }
     end
 
     def remove obj
-      data = send(2006) do |buf|
+      send(2006) do |buf|
         # body
         buf.write :int,     reserved = 0,
                   :cstring, namespace = 'default.test',
@@ -109,11 +99,6 @@ module Mongo
         # bson
         buf.write :bson, obj
       end
-
-      callback{
-        send_data [ data.size + 4 ].pack('i')
-        send_data data
-      }
     end
 
     # connection
@@ -139,7 +124,10 @@ module Mongo
                 :int, response = 0,
                 :int, operation = command_id
       yield buf
-      buf.data
+      callback{
+        send_data [ buf.size + 4 ].pack('i')
+        send_data buf.data
+      }
     end
   end
   
