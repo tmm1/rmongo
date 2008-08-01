@@ -22,34 +22,38 @@ module Mongo
     end
 
     def receive_data data
-      log 'receive_data', data
+      # log 'receive_data', data
       @buf << data
 
-      # packet size
-      size = @buf.read(:int)
-      # p [size]
+      until @buf.empty?
+        # packet size
+        size = @buf.read(:int)
+        # p [size]
+        
+        break unless @buf.size >= size-4
 
-      # header
-      id, response, operation = @buf.read(:int, :int, :int)
-      # p [id, response, operation]
+        # header
+        id, response, operation = @buf.read(:int, :int, :int)
+        # p [id, response, operation]
       
-      # body
-      reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
-      # p [reserved, cursor, start, num]
+        # body
+        reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
+        # p [reserved, cursor, start, num]
 
-      # bson results
-      results = (1..num).map do
-        @buf.read(:bson)
-      end
-      # pp results
+        # bson results
+        results = (1..num).map do
+          @buf.read(:bson)
+        end
+        # pp results
       
-      if cb = @responses.delete(response)
-        cb.call(results)
+        if cb = @responses.delete(response)
+          cb.call(results)
+        end
       end
     end
     
     def send_data data
-      log 'send_data', data
+      # log 'send_data', data
       super
     end
 
@@ -154,9 +158,14 @@ EM.run{
   mongo.remove({})
 
   mongo.insert({ :n => 1, :_id => '4892ae52771f9ae3002d9cf5' })
-  mongo.insert({ :n => 1, :_id => '4892ae52771f9ae3002d9cf6' })
+  mongo.insert({ :n => 2, :_id => '4892ae52771f9ae3002d9cf6' })
+  mongo.insert({ :n => 3, :_id => '4892ae52771f9ae3002d9cf7' })
 
-  mongo.find({:n=>1}) do |results|
+  mongo.find({ :_id => '4892ae52771f9ae3002d9cf6' }) do |results|
+    pp [:found, results]
+  end
+
+  mongo.find({ :n => { :'$gt' => 1 } }) do |results|
     pp [:found, results]
     puts
     EM.stop_event_loop
@@ -167,31 +176,9 @@ __END__
 
 ["connected"]
 
-["send_data", "*\000\000\000"]
-
-["send_data",
- "\001\000\000\000\000\000\000\000\326\a\000\000\000\000\000\000default.test\000\000\000\000\000\005\000\000\000\000"]
-
-["send_data", "B\000\000\000"]
-
-["send_data",
- "\002\000\000\000\000\000\000\000\322\a\000\000\000\000\000\000default.test\000!\000\000\000\001n\000\000\000\000\000\000\000\360?\a_id\000\343\232\037wR\256\222H\365\234-\000\000"]
-
-["send_data", "B\000\000\000"]
-
-["send_data",
- "\003\000\000\000\000\000\000\000\322\a\000\000\000\000\000\000default.test\000!\000\000\000\001n\000\000\000\000\000\000\000\360?\a_id\000\343\232\037wR\256\222H\366\234-\000\000"]
-
-["send_data", "9\000\000\000"]
-
-["send_data",
- "\004\000\000\000\000\000\000\000\324\a\000\000\000\000\000\000default.test\000\000\000\000\000\000\000\000\000\020\000\000\000\001n\000\000\000\000\000\000\000\360?\000"]
-
-["receive_data",
- "f\000\000\000\3056\027\245\004\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\002\000\000\000!\000\000\000\001n\000\000\000\000\000\000\000\360?\a_id\000\343\232\037wR\256\222H\365\234-\000\000!\000\000\000\001n\000\000\000\000\000\000\000\360?\a_id\000\343\232\037wR\256\222H\366\234-\000\000"]
-
+[:found, [{:n=>2.0, :_id=>"4892ae52771f9ae3002d9cf6"}]]
 [:found,
- [{:n=>1.0, :_id=>"4892ae52771f9ae3002d9cf5"},
-  {:n=>1.0, :_id=>"4892ae52771f9ae3002d9cf6"}]]
+ [{:n=>2.0, :_id=>"4892ae52771f9ae3002d9cf6"},
+  {:n=>3.0, :_id=>"4892ae52771f9ae3002d9cf7"}]]
 
 ["disconnected"]
