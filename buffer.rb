@@ -240,6 +240,10 @@ module Mongo
       end
     end
     
+    def multi_write *args
+      write(args.shift, args.shift) while !args.empty?
+    end
+    
     def _write data, pack = nil
       data = [*data].pack(pack) if pack
       @data[@pos,0] = data
@@ -259,6 +263,7 @@ module Mongo
 end
 
 if $0 =~ /bacon/ or $0 == __FILE__
+  require 'rubygems'
   require 'bacon'
   include Mongo
 
@@ -333,6 +338,14 @@ if $0 =~ /bacon/ or $0 == __FILE__
         @buf.should.be.empty
       end
 
+    end
+    
+    should "read and write multiple times" do
+      arr = [ :byte, 0b10101010, :short, 100 ]
+      @buf.multi_write(*arr)
+      @buf.rewind
+      @buf.read(arr.shift).should == arr.shift
+      @buf.read(arr.shift).should == arr.shift
     end
     
     [
