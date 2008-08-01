@@ -1,5 +1,5 @@
-- make Buffer#write support multiple arguments
-- refactor commands using send(command_id){ |buf| buf.write(:custom, data, :for, command) }
++ make Buffer#write support multiple arguments
++ refactor commands using send(command_id){ |buf| buf.write(:custom, data, :for, command) }
 - integrate collections method_missing api from jruby wrapper
 
 - improved version of save
