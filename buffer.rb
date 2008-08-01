@@ -126,103 +126,104 @@ module Mongo
       types.size == 1 ? values.first : values
     end
     
-    def write type, data
-      case type
-      when :byte
-        _write(data, 'C')
-      when :short
-        _write(data, 'n')
-      when :int
-        _write(data, 'I')
-      when :double
-        _write(data, 'd')
-      when :long
-        _write(data, 'N')
-      when :longlong
-        lower =  data & 0xffffffff
-        upper = (data & ~0xffffffff) >> 32
-        _write([upper, lower], 'NN')
-      when :cstring
-        _write(data.to_s + "\0")
-      when :oid
-        data.scan(/.{8}/).enum_with_index.inject([]) do |a, (num, i)|
-          a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
-          a
-        end.each do |num|
-          write(:int, num.to_i(16))
-        end
-      when :bson
-        buf = Buffer.new
-        data.each do |key,value|
-          case value
-          when Numeric
-            id = 1
-            type = :double
-          when String
-            if key == :_id
-              id = 7
-              type = :oid
-            else
-              id = 2
+    def write *args
+      args.each_slice(2) do |type, data|
+        case type
+        when :byte
+          _write(data, 'C')
+        when :short
+          _write(data, 'n')
+        when :int
+          _write(data, 'I')
+        when :double
+          _write(data, 'd')
+        when :long
+          _write(data, 'N')
+        when :longlong
+          lower =  data & 0xffffffff
+          upper = (data & ~0xffffffff) >> 32
+          _write([upper, lower], 'NN')
+        when :cstring
+          _write(data.to_s + "\0")
+        when :oid
+          data.scan(/.{8}/).enum_with_index.inject([]) do |a, (num, i)|
+            a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
+            a
+          end.each do |num|
+            write(:int, num.to_i(16))
+          end
+        when :bson
+          buf = Buffer.new
+          data.each do |key,value|
+            case value
+            when Numeric
+              id = 1
+              type = :double
+            when String
+              if key == :_id
+                id = 7
+                type = :oid
+              else
+                id = 2
+                type = :cstring
+              end
+            when Hash
+              if data.keys.map{|k| k.to_s}.sort == %w[ _id _ns ]
+                id = 12 # ref
+                type = proc{ |out|
+                  out.write(:cstring, data[:_ns])
+                  out.write(:oid, data[:_id])
+                }
+              else
+                id = 3
+                type = :bson
+              end
+            when Array
+              id = 4
+              type = :bson
+              value = value.enum_with_index.inject({}){ |h, (v, i)| h.update i => v }
+            when TrueClass, FalseClass
+              id = 8
+              type = :byte
+              value = value ? 1 : 0
+            when Time
+              id = 9
+              type = :longlong
+              value = value.to_i * 1000 + (value.tv_usec/1000)
+            when NilClass
+              id = 10
+              type = nil
+            when Regexp
+              id = 11
+              type = proc{ |out|
+                out.write(:cstring, value.source)
+                out.write(:cstring, { 'i' => 1, 'm' => 2, 'x' => 4 }.inject('') do |s, (o, n)|
+                  s += o if value.options & n > 0
+                  s
+                end)
+              }
+            when Symbol
+              id = 14
               type = :cstring
             end
-          when Hash
-            if data.keys.map{|k| k.to_s}.sort == %w[ _id _ns ]
-              id = 12 # ref
-              type = proc{ |out|
-                out.write(:cstring, data[:_ns])
-                out.write(:oid, data[:_id])
-              }
-            else
-              id = 3
-              type = :bson
+
+            buf.write(:byte, id)
+            buf.write(:cstring, key)
+
+            if type.respond_to? :call
+              type.call(buf)
+            elsif type
+              buf.write(type, value)
             end
-          when Array
-            id = 4
-            type = :bson
-            value = value.enum_with_index.inject({}){ |h, (v, i)| h.update i => v }
-          when TrueClass, FalseClass
-            id = 8
-            type = :byte
-            value = value ? 1 : 0
-          when Time
-            id = 9
-            type = :longlong
-            value = value.to_i * 1000 + (value.tv_usec/1000)
-          when NilClass
-            id = 10
-            type = nil
-          when Regexp
-            id = 11
-            type = proc{ |out|
-              out.write(:cstring, value.source)
-              out.write(:cstring, { 'i' => 1, 'm' => 2, 'x' => 4 }.inject('') do |s, (o, n)|
-                s += o if value.options & n > 0
-                s
-              end)
-            }
-          when Symbol
-            id = 14
-            type = :cstring
           end
+          buf.write(:byte, 0) # eoo
 
-          buf.write(:byte, id)
-          buf.write(:cstring, key)
-
-          if type.respond_to? :call
-            type.call(buf)
-          elsif type
-            buf.write(type, value)
-          end
+          write(:int, buf.size+4)
+          _write(buf.to_s)
+        else
+          raise InvalidType, "Cannot write data of type #{type}"
         end
-        buf.write(:byte, 0) # eoo
-
-        write(:int, buf.size+4)
-        _write(buf.to_s)
-      else
-        raise InvalidType, "Cannot write data of type #{type}"
       end
-      
       self
     end
 
@@ -238,10 +239,6 @@ module Mongo
         end
         data
       end
-    end
-    
-    def multi_write *args
-      write(args.shift, args.shift) while !args.empty?
     end
     
     def _write data, pack = nil
@@ -342,7 +339,7 @@ if $0 =~ /bacon/ or $0 == __FILE__
     
     should "read and write multiple times" do
       arr = [ :byte, 0b10101010, :short, 100 ]
-      @buf.multi_write(*arr)
+      @buf.write(*arr)
       @buf.rewind
       @buf.read(arr.shift).should == arr.shift
       @buf.read(arr.shift).should == arr.shift
