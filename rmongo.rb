@@ -1,7 +1,9 @@
 require 'rubygems'
 require 'eventmachine'
+require 'buffer'
+require 'pp'
 
-class Mongo
+module Mongo
 
   module Client
     include EM::Deferrable
@@ -15,62 +17,32 @@ class Mongo
 
     def connection_completed
       log 'connected'
+      @buf = Buffer.new
       succeed
     end
 
     def receive_data data
       log 'receive_data', data
-      
+      @buf << data
+
       # packet size
-      size = *data.slice!(0,4).unpack('i')
+      size = @buf.read(:int)
       p [size]
 
       # header
-      id, response, operation = data.slice!(0,12).unpack('i3')
+      id, response, operation = @buf.read(:int, :int, :int)
       p [id, response, operation]
       
       # body
-      reserved, upper, lower, start, num = data.slice!(0,20).unpack('iNNii')
-      cursor = upper << 32 | lower
+      reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
       p [reserved, cursor, start, num]
 
-      # bson
-      seen = 0
-      while seen < num
-        len = *data.slice!(0,4).unpack('i')
-        if len > 0
-          while true
-            case type = data.slice!(0,1).unpack('c').first
-            when 0 # eoo
-              p :eoo
-              break
-
-            when 1 # number
-              str = ''
-              chr = "\0"
-              str += chr while chr = data.slice!(0,1).unpack('a').first and chr != "\0"
-              name = str
-
-              n = *data.slice!(0,8).unpack('d') # XXX why not in network byte order?
-              p [:num, name, n]
-
-            when 7 # oid
-              str = ''
-              chr = "\0"
-              str += chr while chr = data.slice!(0,1).unpack('a').first and chr != "\0"
-              name = str
-
-              base, inc = data.slice!(0,12).unpack('Ni')
-
-              p [:oid, name, base, inc]
-
-            else
-              p type
-            end
-          end
-        end
-        seen += 1
+      # bson results
+      results = (1..num).map do
+        @buf.read(:bson)
       end
+      
+      pp results
     end
     
     def send_data data
@@ -85,13 +57,25 @@ class Mongo
     # commands
     
     def find
-      size =   0
-      header = [ id = @id+=1, response = 0, operation = 2004 ].pack('i3')
-      body =   [ 0, ns = 'default.test', eos = 0, skip = 0, ret = 0 ].pack('ia*cii')
-      bson =   [ length = 5, eoo = 0 ].pack('ic')
+      buf = Buffer.new
+      
+      # header
+      buf.write :int, id = @id+=1
+      buf.write :int, response = 0
+      buf.write :int, operation = 2004
+
+      # body
+      buf.write :int, reserved = 0
+      buf.write :cstring, 'default.test'
+      buf.write :int, skip = 0
+      buf.write :int, ret = 0
+
+      # bson
+      buf.write :bson, {}
 
       callback{
-        send_data [ size=(header+body+bson).size+4, header, body, bson ].pack('ia*a*a*')
+        send_data [ buf.size + 4 ].pack('i')
+        send_data buf.data
       }
     end
     
