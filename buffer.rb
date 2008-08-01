@@ -63,6 +63,13 @@ module Mongo
           str = @data.unpack("@#{@pos}Z*").first
           @data.slice!(@pos, str.size+1)
           str
+        when :oid
+          _read(12, 'i*').enum_with_index.inject([]) do |a, (num, i)|
+            a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
+            a
+          end.map do |num|
+            num.to_s(16).rjust(8,'0')
+          end.join('')
         when :bson
           bson = {}
           data = Buffer.new _read(read(:int)-4)
@@ -83,12 +90,7 @@ module Mongo
                         when 4 # array
                           data.read(:bson).inject([]){ |a, (k,v)| a[k.to_s.to_i] = v; a }
                         when 7 # oid
-                          data._read(12, 'i*').enum_with_index.inject([]) do |a, (num, i)|
-                            a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
-                            a
-                          end.map do |num|
-                            num.to_s(16).rjust(8,'0')
-                          end.join('')
+                          data.read(:oid)
                         when 8 # bool
                           data.read(:byte) == 1 ? true : false
                         when 9 # time
@@ -105,6 +107,11 @@ module Mongo
                           end
 
                           Regexp.new(source, options)
+                        when 12 # ref
+                          ref = {}
+                          ref[:_ns] = data.read(:cstring)
+                          ref[:_id] = data.read(:oid)
+                          ref
                         when 14 # symbol
                           data.read(:cstring).intern
                         end
@@ -137,6 +144,13 @@ module Mongo
         _write([upper, lower], 'NN')
       when :cstring
         _write(data.to_s + "\0")
+      when :oid
+        data.scan(/.{8}/).enum_with_index.inject([]) do |a, (num, i)|
+          a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
+          a
+        end.each do |num|
+          write(:int, num.to_i(16))
+        end
       when :bson
         buf = Buffer.new
         data.each do |key,value|
@@ -146,22 +160,23 @@ module Mongo
             type = :double
           when String
             if key == :_id
-              id = 7 # oid
-              type = proc{ |out|
-                value.scan(/.{8}/).enum_with_index.inject([]) do |a, (num, i)|
-                  a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
-                  a
-                end.each do |num|
-                  out.write(:int, num.to_i(16))
-                end
-              }
+              id = 7
+              type = :oid
             else
               id = 2
               type = :cstring
             end
           when Hash
-            id = 3
-            type = :bson
+            if data.keys.map{|k| k.to_s}.sort == %w[ _id _ns ]
+              id = 12 # ref
+              type = proc{ |out|
+                out.write(:cstring, data[:_ns])
+                out.write(:oid, data[:_id])
+              }
+            else
+              id = 3
+              type = :bson
+            end
           when Array
             id = 4
             type = :bson
@@ -200,10 +215,10 @@ module Mongo
             buf.write(type, value)
           end
         end
+        buf.write(:byte, 0) # eoo
 
-        write(:int, buf.size+5)
+        write(:int, buf.size+4)
         _write(buf.to_s)
-        write(:byte, 0)
       else
         raise InvalidType, "Cannot write data of type #{type}"
       end
@@ -327,8 +342,8 @@ if $0 =~ /bacon/ or $0 == __FILE__
       { :array => [1, 2, 3]                            },
       { :string => 'abcdefg'                           },
       { :oid => { :_id => '48921a43771f9a7200f23373' } },
-      # { :ref => { :_ns => 'namespace',
-      #             :_id => 'uuid' }                   },
+      { :ref => { :_ns => 'namespace',
+                  :_id => '48921a43771f9a7200f23373' } },
       { :boolean => true                               },
       { :time => Time.at(Time.now.to_i)                },
       { :null => nil                                   },
