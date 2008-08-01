@@ -165,7 +165,7 @@ EM.run{
     pp [:found, results]
   end
 
-  mongo.find({ :n => { :'$gt' => 1 } }) do |results|
+  mongo.find({ :n => { :$gt => 1 } }) do |results|
     pp [:found, results]
     puts
     EM.stop_event_loop
