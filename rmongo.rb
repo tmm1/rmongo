@@ -22,31 +22,34 @@ module Mongo
     end
 
     def receive_data data
-      log 'receive_data', data
+      # log 'receive_data', data
       @buf << data
 
       # packet size
       size = @buf.read(:int)
-      p [size]
+      # p [size]
 
       # header
       id, response, operation = @buf.read(:int, :int, :int)
-      p [id, response, operation]
+      # p [id, response, operation]
       
       # body
       reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
-      p [reserved, cursor, start, num]
+      # p [reserved, cursor, start, num]
 
       # bson results
       results = (1..num).map do
         @buf.read(:bson)
       end
+      # pp results
       
-      pp results
+      if cb = @responses.delete(response)
+        cb.call(results)
+      end
     end
     
     def send_data data
-      log 'send_data', data
+      # log 'send_data', data
       super
     end
 
@@ -56,7 +59,7 @@ module Mongo
 
     # commands
     
-    def find
+    def find obj, &cb
       buf = Buffer.new
       
       # header
@@ -71,14 +74,15 @@ module Mongo
       buf.write :int, ret = 0
 
       # bson
-      buf.write :bson, {}
+      buf.write :bson, obj
+
+      (@responses ||= {})[ @id ] = cb if cb
 
       callback{
         send_data [ buf.size + 4 ].pack('i')
         send_data buf.data
       }
     end
-    
     
     def self.connect opts = {}
       opts[:host] ||= '127.0.0.1'
@@ -100,5 +104,7 @@ end
 
 EM.run{
   mongo = Mongo::Client.connect
-  mongo.find
+  mongo.find({}) do |results|
+    pp [:found, results]
+  end
 }
