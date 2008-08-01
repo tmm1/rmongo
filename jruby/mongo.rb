@@ -1,7 +1,7 @@
 require 'pp'
 require 'java'
 
-Dir['/Users/aman/code/10gen/appserver/{build,include/*.jar}'].each{ |cp| $CLASSPATH << cp }
+Dir["#{ENV["TENGEN_APPSERVER"]}/{build,include/*.jar}"].each{ |cp| $CLASSPATH << cp }
 import 'ed.db.DBProvider'
 import 'ed.db.DBCursor'
 import 'ed.js.JSObjectBase'
