@@ -68,15 +68,15 @@ module Mongo
       buf = Buffer.new
       
       # header
-      buf.write :int, id = @id+=1
-      buf.write :int, response = 0
-      buf.write :int, operation = 2004
+      buf.multi_write :int, id = @id+=1,
+                      :int, response = 0,
+                      :int, operation = 2004
 
       # body
-      buf.write :int,     reserved = 0
-      buf.write :cstring, namespace = 'default.test'
-      buf.write :int,     skip = 0
-      buf.write :int,     ret = 0
+      buf.multi_write :int,     reserved = 0,
+                      :cstring, namespace = 'default.test',
+                      :int,     skip = 0,
+                      :int,     ret = 0
 
       # bson
       buf.write :bson, obj
@@ -93,13 +93,13 @@ module Mongo
       buf = Buffer.new
       
       # header
-      buf.write :int, id = @id+=1
-      buf.write :int, response = 0
-      buf.write :int, operation = 2002
+      buf.multi_write :int, id = @id+=1,
+                      :int, response = 0,
+                      :int, operation = 2002
 
       # body
-      buf.write :int,     reserved = 0
-      buf.write :cstring, namespace = 'default.test'
+      buf.multi_write :int,     reserved = 0,
+                      :cstring, namespace = 'default.test'
 
       # bson
       buf.write :bson, obj
@@ -114,14 +114,14 @@ module Mongo
       buf = Buffer.new
       
       # header
-      buf.write :int, id = @id+=1
-      buf.write :int, response = 0
-      buf.write :int, operation = 2006
+      buf.multi_write :int, id = @id+=1,
+                      :int, response = 0,
+                      :int, operation = 2006
 
       # body
-      buf.write :int,     reserved = 0
-      buf.write :cstring, namespace = 'default.test'
-      buf.write :int,     0
+      buf.multi_write :int,     reserved = 0,
+                      :cstring, namespace = 'default.test',
+                      :int,     0
 
       # bson
       buf.write :bson, obj
@@ -147,6 +147,9 @@ module Mongo
       require 'pp'
       pp args
       puts
+    end
+    
+    def refactor
     end
   end
   
