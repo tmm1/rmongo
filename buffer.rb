@@ -51,7 +51,7 @@ module Mongo
         when :short
           _read(2, 'n')
         when :int
-          _read(4, 'i')
+          _read(4, 'I')
         when :double
           _read(8, 'd')
         when :long
@@ -133,7 +133,7 @@ module Mongo
       when :short
         _write(data, 'n')
       when :int
-        _write(data, 'i')
+        _write(data, 'I')
       when :double
         _write(data, 'd')
       when :long
