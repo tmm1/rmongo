@@ -82,6 +82,13 @@ module Mongo
                           data.read(:bson)
                         when 4 # array
                           data.read(:bson).inject([]){ |a, (k,v)| a[k.to_s.to_i] = v; a }
+                        when 7 # oid
+                          data._read(12, 'i*').enum_with_index.inject([]) do |a, (num, i)|
+                            a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
+                            a
+                          end.map do |num|
+                            num.to_s(16).rjust(8,'0')
+                          end.join('')
                         when 8 # bool
                           data.read(:byte) == 1 ? true : false
                         when 9 # time
@@ -138,8 +145,20 @@ module Mongo
             id = 1
             type = :double
           when String
-            id = 2
-            type = :cstring
+            if key == :_id
+              id = 7 # oid
+              type = proc{ |out|
+                value.scan(/.{8}/).enum_with_index.inject([]) do |a, (num, i)|
+                  a[ i == 0 ? 1 : i == 1 ? 0 : i ] = num # swap first two
+                  a
+                end.each do |num|
+                  out.write(:int, num.to_i(16))
+                end
+              }
+            else
+              id = 2
+              type = :cstring
+            end
           when Hash
             id = 3
             type = :bson
@@ -302,18 +321,18 @@ if $0 =~ /bacon/ or $0 == __FILE__
     end
     
     [
-      { :num => 1                       },
-      { :symbol => :abc                 },
-      { :object => {}                   },
-      { :array => [1, 2, 3]             },
-      { :string => 'abcdefg'            },
-      # { :oid => { :_id => 'uuid' }      },
+      { :num => 1                                      },
+      { :symbol => :abc                                },
+      { :object => {}                                  },
+      { :array => [1, 2, 3]                            },
+      { :string => 'abcdefg'                           },
+      { :oid => { :_id => '48921a43771f9a7200f23373' } },
       # { :ref => { :_ns => 'namespace',
-      #             :_id => 'uuid' }      },
-      { :boolean => true                },
-      { :time => Time.at(Time.now.to_i) },
-      { :null => nil                    },
-      { :regex => /^.*?def/im           }
+      #             :_id => 'uuid' }                   },
+      { :boolean => true                               },
+      { :time => Time.at(Time.now.to_i)                },
+      { :null => nil                                   },
+      { :regex => /^.*?def/im                          }
     ]. each do |bson|
 
       should "read and write bson with #{bson.keys.first}s" do
