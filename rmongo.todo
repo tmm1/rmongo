@@ -1,0 +1,16 @@
+- make Buffer#write support multiple arguments
+- refactor commands using send(command_id){ |buf| buf.write(:custom, data, :for, command) }
+- integrate collections method_missing api from jruby wrapper
+
+- improved version of save
+  - doInsert if not .keys.include?(:_id)
+    - generate object id
+      - use same algorithm as ObjectID.java
+      - or perhaps, use modified uuid gem
+  - doUpdate if :_id already exists
+
+- add indexing api (ensureIndex) [ look at dbcollection.js ]
+
+- support cursors
+  - doGetMore to get more data from a cursor
+  - doKillCursors to clean up
