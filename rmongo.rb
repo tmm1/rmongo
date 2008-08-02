@@ -162,10 +162,23 @@ EM.run{
   log 'remove all objects in the database'
   mongo.remove({})
 
-  log 'insert some new objects'
-  mongo.insert(:n => 1, :tags => ['ruby', 'js'], :_id => '4892ae52771f9ae3002d9cf5')
-  mongo.insert(:n => 2, :tags => ['js', 'java'], :_id => '4892ae52771f9ae3002d9cf6')
-  mongo.insert(:n => 3, :tags => ['java', 'c#'], :_id => '4892ae52771f9ae3002d9cf7')
+  log 'insert a complex object'
+  mongo.insert :_id => '4892ae52771f9ae3002d9cf4',
+               :array => [1,2,3],
+               :float => 123.456,
+               :hash => {:boolean => true},
+               :nil => nil,
+               :symbol => :name,
+               :string => 'hello world'
+
+  mongo.find({}) do |results|
+    log 'all objects', :found, results
+  end
+
+  # log 'insert some new objects'
+  # mongo.insert(:n => 1, :tags => ['ruby', 'js'], :_id => '4892ae52771f9ae3002d9cf5')
+  # mongo.insert(:n => 2, :tags => ['js', 'java'], :_id => '4892ae52771f9ae3002d9cf6')
+  # mongo.insert(:n => 3, :tags => ['java', 'c#'], :_id => '4892ae52771f9ae3002d9cf7')
 
   # log 'add index on n'
   # mongo.namespace = 'default.system.indexes'
@@ -180,13 +193,13 @@ EM.run{
   #   log 'all objects, sorted by n desc', :found, results
   # end
 
-  mongo.find({ :_id => '4892ae52771f9ae3002d9cf6' }) do |results|
-    log 'object with specific id', :found, results
-  end
+  # mongo.find({ :_id => '4892ae52771f9ae3002d9cf6' }) do |results|
+  #   log 'object with specific id', :found, results
+  # end
 
-  mongo.find(:n >= 1) do |results|
-    log 'objects where n >= 1', :found, results
-  end
+  # mongo.find(:n >= 1) do |results|
+  #   log 'objects where n >= 1', :found, results
+  # end
   
   # mongo.close{ EM.stop_event_loop }
 }
