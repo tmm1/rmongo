@@ -84,6 +84,7 @@ module Mongo
                         when 1 # number
                           data.read(:double)
                         when 2 # string
+                          data.read(:int)
                           data.read(:cstring)
                         when 3 # object
                           data.read(:bson)
@@ -113,6 +114,7 @@ module Mongo
                           ref[:_id] = data.read(:oid)
                           ref
                         when 14 # symbol
+                          data.read(:int)
                           data.read(:cstring).intern
                         end
           end
@@ -165,7 +167,10 @@ module Mongo
                 type = :oid
               else
                 id = 2
-                type = :cstring
+                type = proc{ |out|
+                  out.write(:int, value.length+1)
+                  out.write(:cstring, value)
+                }
               end
             when Hash
               if data.keys.map{|k| k.to_s}.sort == %w[ _id _ns ]
@@ -204,7 +209,10 @@ module Mongo
               }
             when Symbol
               id = 14
-              type = :cstring
+              type = proc{ |out|
+                out.write(:int, value.to_s.length+1)
+                out.write(:cstring, value.to_s)
+              }
             end
 
             buf.write(:byte, id)
