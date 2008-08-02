@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'eventmachine'
 require 'buffer'
+require 'pp'
 
 module Mongo
   class Error < Exception; end
@@ -209,12 +210,6 @@ class Symbol
 end
 
 EM.run{
-  def log *args
-    require 'pp'
-    pp args
-    puts
-  end
-
   # connect to mongo
   mongo = Mongo::Client.connect :port => 27017
 
@@ -227,7 +222,7 @@ EM.run{
   
   # find all objects
   mongo.find({}) do |results|
-    # use results here
+    
   end
 
   # find specific object
@@ -262,7 +257,7 @@ EM.run{
   mongo.insert(:_id => '000000000000000000000012', :n => 3, :number => 112233.445566)
   mongo.insert(:_id => '000000000000000000000013', :n => 4, :null => nil)
   mongo.insert(:_id => '000000000000000000000014', :n => 5, :object => { :boolean => true })
-  mongo.insert(:_id => '000000000000000000000015', :n => 6, :adf => '123')
+  mongo.insert(:_id => '000000000000000000000015', :n => 6, :symbol => :Constant)
 
   # simple searches
   mongo.find(:n > 1) do |results|
@@ -364,7 +359,7 @@ FIND {:n=>{:$gt=>1}} =>
 
 --------------------------------------------------------------------------------
 
-FIND {:n=>{:$in=>[1, 3, 5]}} =>
+FIND {:n=>{:$in=>[1, 3, 5]}} => # XXX why does this match objects that have no value for n
 
 [{:_id=>"000000000000000000000001", :hello=>"world"},
  {:_id=>"000000000000000000000002",
@@ -382,7 +377,7 @@ FIND {:n=>{:$in=>[1, 3, 5]}} =>
 
 --------------------------------------------------------------------------------
 
-FIND {:orderby=>{:n=>-1}, :query=>{:n=>{:$gt=>0}}} =>
+FIND {:orderby=>{:n=>-1}, :query=>{:n=>{:$gt=>0}}} => # XXX why doesn't this work
 
 [{:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
  {:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
@@ -393,7 +388,7 @@ FIND {:orderby=>{:n=>-1}, :query=>{:n=>{:$gt=>0}}} =>
 
 --------------------------------------------------------------------------------
 
-FIND {} =>
+FIND {} => # XXX why does this find objects outside the namespace
 
 [{:_id=>"000000000000000000000001", :hello=>"world"},
  {:_id=>"000000000000000000000002",
