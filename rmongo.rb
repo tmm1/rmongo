@@ -18,7 +18,19 @@ module Mongo
         raise Error, 'could not connect to server'
       }
     end
-    attr_accessor :namespace
+
+    def namespace ns = nil
+      begin
+        old_ns = @namespace
+        @namespace = ns
+        yield
+      ensure
+        @namespace = old_ns
+      end if ns
+
+      @namespace
+    end
+    attr_writer :namespace
 
     # EM hooks
 
