@@ -90,6 +90,9 @@ module Mongo
                           data.read(:bson)
                         when 4 # array
                           data.read(:bson).inject([]){ |a, (k,v)| a[k.to_s.to_i] = v; a }
+                        when 5 # binary
+                          data._read data.read(:int)
+                        when 6 # undefined
                         when 7 # oid
                           data.read(:oid)
                         when 8 # bool
@@ -113,6 +116,9 @@ module Mongo
                           ref[:_ns] = data.read(:cstring)
                           ref[:_id] = data.read(:oid)
                           ref
+                        when 13 # code
+                          data.read(:int)
+                          data.read(:cstring)
                         when 14 # symbol
                           data.read(:int)
                           data.read(:cstring).intern
