@@ -11,6 +11,7 @@ module Mongo
     def initialize opts = {}
       @settings = opts
       @id = 0
+      @responses = {}
       @namespace = 'default.test'
       timeout 2
       errback{
@@ -51,6 +52,9 @@ module Mongo
         if cb = @responses.delete(response)
           cb.call(results)
         end
+
+        # close if no more responses pending
+        @on_close.succeed if @on_close and @responses.size == 0
       end
     end
     
@@ -107,6 +111,14 @@ module Mongo
     end
 
     # connection
+    
+    def close
+      @on_close = EM::DefaultDeferrable.new
+      @on_close.callback{
+        close_connection
+        yield if block_given?
+      }
+    end
     
     def self.connect opts = {}
       opts[:host] ||= '127.0.0.1'
@@ -206,7 +218,7 @@ EM.run{
   #   log 'objects where n >= 1', :found, results
   # end
   
-  # mongo.close{ EM.stop_event_loop }
+  mongo.close{ EM.stop_event_loop }
 }
 
 __END__
