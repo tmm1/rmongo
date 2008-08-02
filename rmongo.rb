@@ -133,6 +133,23 @@ module Mongo
   
 end
 
+# XXX this is terrible, yes i know!
+class Symbol
+
+  {
+    :<  => :$lt,
+    :<= => :$lte,
+    :>  => :$gt,
+    :>= => :$gte
+  }.each do |func, key|
+    class_eval %[
+      def #{func} num
+        { self => { :#{key} => num }}
+      end
+    ]
+  end
+end
+
 EM.run{
   def log *args
     require 'pp'
@@ -167,8 +184,8 @@ EM.run{
     log 'object with specific id', :found, results
   end
 
-  mongo.find({ :n => { :$gt => 1 } }) do |results|
-    log 'objects where n > 1', :found, results
+  mongo.find(:n >= 1) do |results|
+    log 'objects where n >= 1', :found, results
   end
   
   # mongo.close{ EM.stop_event_loop }
