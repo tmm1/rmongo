@@ -1,7 +1,6 @@
 require 'rubygems'
 require 'eventmachine'
 require 'buffer'
-require 'pp'
 
 module Mongo
 
@@ -11,7 +10,9 @@ module Mongo
     def initialize opts = {}
       @settings = opts
       @id = 0
+      @namespace = 'default.test'
     end
+    attr_accessor :namespace
 
     # EM hooks
 
@@ -28,23 +29,19 @@ module Mongo
       until @buf.empty?
         # packet size
         size = @buf.read(:int)
-        # p [size]
         
         break unless @buf.size >= size-4
 
         # header
         id, response, operation = @buf.read(:int, :int, :int)
-        # p [id, response, operation]
       
         # body
         reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
-        # p [reserved, cursor, start, num]
 
         # bson results
         results = (1..num).map do
           @buf.read(:bson)
         end
-        # pp results
       
         if cb = @responses.delete(response)
           cb.call(results)
@@ -64,11 +61,14 @@ module Mongo
     # commands
     
     # to sort: { query : { ... } , orderby : { ... } }
-    def find obj, &cb
+    def find obj, orderby = nil, &cb
+      obj = { :query => obj,
+              :orderby => orderby } if orderby
+
       send(2004) do |buf|
         # body
         buf.write :int,     reserved = 0,
-                  :cstring, namespace = 'default.test',
+                  :cstring, @namespace,
                   :int,     skip = 0,
                   :int,     ret = 0
 
@@ -83,7 +83,7 @@ module Mongo
       send(2002) do |buf|
         # body
         buf.write :int,     reserved = 0,
-                  :cstring, namespace = 'default.test'
+                  :cstring, @namespace
         # bson
         buf.write :bson, obj
       end
@@ -93,7 +93,7 @@ module Mongo
       send(2006) do |buf|
         # body
         buf.write :int,     reserved = 0,
-                  :cstring, namespace = 'default.test',
+                  :cstring, @namespace,
                   :int,     0
 
         # bson
@@ -134,23 +134,44 @@ module Mongo
 end
 
 EM.run{
+  def log *args
+    require 'pp'
+    pp args
+    puts
+  end
+
   mongo = Mongo::Client.connect
 
+  log 'remove all objects in the database'
   mongo.remove({})
 
-  mongo.insert({ :n => 1, :_id => '4892ae52771f9ae3002d9cf5' })
-  mongo.insert({ :n => 2, :_id => '4892ae52771f9ae3002d9cf6' })
-  mongo.insert({ :n => 3, :_id => '4892ae52771f9ae3002d9cf7' })
+  log 'insert some new objects'
+  mongo.insert(:n => 1, :tags => ['ruby', 'js'], :_id => '4892ae52771f9ae3002d9cf5')
+  mongo.insert(:n => 2, :tags => ['js', 'java'], :_id => '4892ae52771f9ae3002d9cf6')
+  mongo.insert(:n => 3, :tags => ['java', 'c#'], :_id => '4892ae52771f9ae3002d9cf7')
+
+  # log 'add index on n'
+  # mongo.namespace = 'default.system.indexes'
+  # mongo.insert(:name => 'n', :ns => 'default.test', :key => { :n => -1 })
+  # mongo.namespace = 'default.test'
+
+  # mongo.find({ :tags => 'ruby' }) do |results|
+  #   log 'objects tagged with ruby', :found, results
+  # end
+
+  # mongo.find({}, :n => -1) do |results|
+  #   log 'all objects, sorted by n desc', :found, results
+  # end
 
   mongo.find({ :_id => '4892ae52771f9ae3002d9cf6' }) do |results|
-    pp [:found, results]
+    log 'object with specific id', :found, results
   end
 
   mongo.find({ :n => { :$gt => 1 } }) do |results|
-    pp [:found, results]
-    puts
-    EM.stop_event_loop
+    log 'objects where n > 1', :found, results
   end
+  
+  # mongo.close{ EM.stop_event_loop }
 }
 
 __END__
