@@ -3,6 +3,7 @@ require 'eventmachine'
 require 'buffer'
 
 module Mongo
+  class Error < Exception; end
 
   module Client
     include EM::Deferrable
@@ -11,6 +12,10 @@ module Mongo
       @settings = opts
       @id = 0
       @namespace = 'default.test'
+      timeout 2
+      errback{
+        raise Error, 'could not connect to server'
+      }
     end
     attr_accessor :namespace
 
