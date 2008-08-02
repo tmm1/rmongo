@@ -86,7 +86,7 @@ module Mongo
     # commands
     
     # to sort: { query : { ... } , orderby : { ... } }
-    def find obj, orderby = nil, &cb
+    def find obj, orderby = nil
       obj = { :query => obj,
               :orderby => orderby } if orderby
 
@@ -99,9 +99,16 @@ module Mongo
 
         # bson
         buf.write :bson, obj
-      end
 
-      (@responses ||= {})[ @id ] = cb if cb
+        # proc to call with response
+        @responses[@id] = proc{ |res|
+          puts "#{'-'*80}\n"
+          puts "\nFIND #{obj.inspect} =>\n\n"
+          pp res
+          puts
+          yield(res)
+        } if block_given?
+      end
     end
 
     def insert obj
@@ -150,21 +157,24 @@ module Mongo
     private
   
     def log *args
-      require 'pp'
       pp args
       puts
     end
     
-    def send(command_id, &cb)
-      buf = Buffer.new
-      buf.write :int, id = @id+=1,
-                :int, response = 0,
-                :int, operation = command_id
-      yield buf
-      callback{
-        send_data [ buf.size + 4 ].pack('i')
-        send_data buf.data
-      }
+    def send command_id
+      # EM.next_tick do
+        callback{
+          buf = Buffer.new
+          buf.write :int, id = @id+=1,
+                    :int, response = 0,
+                    :int, operation = command_id
+
+          yield buf
+
+          send_data [ buf.size + 4 ].pack('i')
+          send_data buf.data
+        }
+      # end
     end
   end
   
@@ -205,50 +215,95 @@ EM.run{
     puts
   end
 
-  mongo = Mongo::Client.connect
+  # connect to mongo
+  mongo = Mongo::Client.connect :port => 27017
 
-  log 'remove all objects in the database'
+  # remove all objects in the database
   mongo.remove({})
 
-  log 'insert a complex object'
-  mongo.insert :_id => '4892ae52771f9ae3002d9cf4',
+  # insert a simple object with a string
+  mongo.insert :_id => '000000000000000000000001',
+               :hello => 'world'
+  
+  # find all objects
+  mongo.find({}) do |results|
+    # use results here
+  end
+
+  # find specific object
+  mongo.find(:_id => '000000000000000000000001') do |results|
+    
+  end
+
+  # insert complex object
+  mongo.insert :_id => '000000000000000000000002',
                :array => [1,2,3],
                :float => 123.456,
                :hash => {:boolean => true},
                :nil => nil,
                :symbol => :name,
-               :string => 'hello world'
+               :string => 'hello world',
+               :time => Time.now,
+               :regex => /abc$/ix
 
+  # find all objects
   mongo.find({}) do |results|
-    log 'all objects', :found, results
+    
   end
 
-  # log 'insert some new objects'
-  # mongo.insert(:n => 1, :tags => ['ruby', 'js'], :_id => '4892ae52771f9ae3002d9cf5')
-  # mongo.insert(:n => 2, :tags => ['js', 'java'], :_id => '4892ae52771f9ae3002d9cf6')
-  # mongo.insert(:n => 3, :tags => ['java', 'c#'], :_id => '4892ae52771f9ae3002d9cf7')
+  # query nested properties
+  mongo.find(:'hash.boolean' => true) do |results|
+    
+  end
 
-  # log 'add index on n'
-  # mongo.namespace = 'default.system.indexes'
-  # mongo.insert(:name => 'n', :ns => 'default.test', :key => { :n => -1 })
-  # mongo.namespace = 'default.test'
+  # insert test data
+  mongo.insert(:_id => '000000000000000000000010', :n => 1, :array  => [1,2,3])
+  mongo.insert(:_id => '000000000000000000000011', :n => 2, :string => 'ruby and js')
+  mongo.insert(:_id => '000000000000000000000012', :n => 3, :number => 112233.445566)
+  mongo.insert(:_id => '000000000000000000000013', :n => 4, :null => nil)
+  mongo.insert(:_id => '000000000000000000000014', :n => 5, :object => { :boolean => true })
+  mongo.insert(:_id => '000000000000000000000015', :n => 6, :adf => '123')
 
-  # mongo.find({ :tags => 'ruby' }) do |results|
-  #   log 'objects tagged with ruby', :found, results
-  # end
+  # simple searches
+  mongo.find(:n > 1) do |results|
+    
+  end
 
-  # mongo.find({}, :n => -1) do |results|
-  #   log 'all objects, sorted by n desc', :found, results
-  # end
+  # in queries # XXX why does this match objects that have no value for n
+  mongo.find :n.in([ 1,3,5 ]) do |results|
+    
+  end
 
-  # mongo.find({ :_id => '4892ae52771f9ae3002d9cf6' }) do |results|
-  #   log 'object with specific id', :found, results
-  # end
+  # sorting # XXX why doesn't this work
+  mongo.find(:n > 0, :n.desc) do |results|
+    
+  end
 
-  # mongo.find(:n >= 1) do |results|
-  #   log 'objects where n >= 1', :found, results
-  # end
+  # switch to editors namespace
+  mongo.namespace = 'default.editors'
   
+  # insert editors with platforms supported tags
+  mongo.insert(:_id => '000000000000000000000101', :name => :textmate, :platform => [:osx])
+  mongo.insert(:_id => '000000000000000000000102', :name => :vim,      :platform => [:osx, :linux])
+  mongo.insert(:_id => '000000000000000000000103', :name => :eclipse,  :platform => [:osx, :linux, :windows])
+  mongo.insert(:_id => '000000000000000000000104', :name => :notepad,  :platform => [:windows])
+  
+  # find all editors # XXX why does this find objects outside the namespace
+  mongo.find({}) do |results|
+    
+  end
+
+  # add multikey index on platforms property
+  mongo.namespace('default.system.indexes') do
+    mongo.insert(:name => 'platforms', :ns => 'default.editors', :key => { :platform => true })
+  end
+
+  # find objects with linux tag
+  mongo.find(:platform => :linux) do |results|
+    
+  end
+
+  # close the connection and stop the reactor
   mongo.close{ EM.stop_event_loop }
 }
 
@@ -256,9 +311,122 @@ __END__
 
 ["connected"]
 
-[:found, [{:n=>2.0, :_id=>"4892ae52771f9ae3002d9cf6"}]]
-[:found,
- [{:n=>2.0, :_id=>"4892ae52771f9ae3002d9cf6"},
-  {:n=>3.0, :_id=>"4892ae52771f9ae3002d9cf7"}]]
+--------------------------------------------------------------------------------
+
+FIND {} =>
+
+[{:_id=>"000000000000000000000001", :hello=>"world"}]
+
+--------------------------------------------------------------------------------
+
+FIND {:_id=>"000000000000000000000001"} =>
+
+[{:_id=>"000000000000000000000001", :hello=>"world"}]
+
+--------------------------------------------------------------------------------
+
+FIND {} =>
+
+[{:_id=>"000000000000000000000001", :hello=>"world"},
+ {:_id=>"000000000000000000000002",
+  :hash=>{:boolean=>true},
+  :regex=>/abc$/ix,
+  :float=>123.456,
+  :symbol=>:name,
+  :array=>[1.0, 2.0, 3.0],
+  :nil=>nil,
+  :string=>"hello world",
+  :time=>Sat Aug 02 02:08:27 -0700 2008}]
+
+--------------------------------------------------------------------------------
+
+FIND {:"hash.boolean"=>true} =>
+
+[{:_id=>"000000000000000000000002",
+  :hash=>{:boolean=>true},
+  :regex=>/abc$/ix,
+  :float=>123.456,
+  :symbol=>:name,
+  :array=>[1.0, 2.0, 3.0],
+  :nil=>nil,
+  :string=>"hello world",
+  :time=>Sat Aug 02 02:08:27 -0700 2008}]
+
+--------------------------------------------------------------------------------
+
+FIND {:n=>{:$gt=>1}} =>
+
+[{:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
+ {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
+ {:_id=>"000000000000000000000013", :n=>4.0, :null=>nil},
+ {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}},
+ {:_id=>"000000000000000000000015", :adf=>"123", :n=>6.0}]
+
+--------------------------------------------------------------------------------
+
+FIND {:n=>{:$in=>[1, 3, 5]}} =>
+
+[{:_id=>"000000000000000000000001", :hello=>"world"},
+ {:_id=>"000000000000000000000002",
+  :hash=>{:boolean=>true},
+  :regex=>/abc$/ix,
+  :float=>123.456,
+  :symbol=>:name,
+  :array=>[1.0, 2.0, 3.0],
+  :nil=>nil,
+  :string=>"hello world",
+  :time=>Sat Aug 02 02:08:27 -0700 2008},
+ {:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
+ {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
+ {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}}]
+
+--------------------------------------------------------------------------------
+
+FIND {:orderby=>{:n=>-1}, :query=>{:n=>{:$gt=>0}}} =>
+
+[{:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
+ {:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
+ {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
+ {:_id=>"000000000000000000000013", :n=>4.0, :null=>nil},
+ {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}},
+ {:_id=>"000000000000000000000015", :adf=>"123", :n=>6.0}]
+
+--------------------------------------------------------------------------------
+
+FIND {} =>
+
+[{:_id=>"000000000000000000000001", :hello=>"world"},
+ {:_id=>"000000000000000000000002",
+  :hash=>{:boolean=>true},
+  :regex=>/abc$/ix,
+  :float=>123.456,
+  :symbol=>:name,
+  :array=>[1.0, 2.0, 3.0],
+  :nil=>nil,
+  :string=>"hello world",
+  :time=>Sat Aug 02 02:08:27 -0700 2008},
+ {:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
+ {:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
+ {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
+ {:_id=>"000000000000000000000013", :n=>4.0, :null=>nil},
+ {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}},
+ {:_id=>"000000000000000000000015", :adf=>"123", :n=>6.0},
+ {:_id=>"000000000000000000000101", :name=>:textmate, :platform=>[:osx]},
+ {:_id=>"000000000000000000000102", :name=>:vim, :platform=>[:osx, :linux]},
+ {:_id=>"000000000000000000000103",
+  :name=>:eclipse,
+  :platform=>[:osx, :linux, :windows]},
+ {:_id=>"000000000000000000000104", :name=>:notepad, :platform=>[:windows]}]
+
+--------------------------------------------------------------------------------
+
+FIND {:platform=>:linux} =>
+
+[{:_id=>"000000000000000000000102", :name=>:vim, :platform=>[:osx, :linux]},
+ {:_id=>"000000000000000000000103",
+  :name=>:eclipse,
+  :platform=>[:osx, :linux, :windows]}]
+
+--------------------------------------------------------------------------------
 
 ["disconnected"]
