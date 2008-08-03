@@ -21,17 +21,24 @@ module Mongo
     end
 
     def namespace ns = nil
-      begin
-        old_ns = @namespace
-        @namespace = ns
-        yield
-      ensure
-        @namespace = old_ns
-      end if ns
+      callback{
+        begin
+          old_ns = @namespace
+          @namespace = ns
+          yield
+        ensure
+          @namespace = old_ns
+        end if ns
+      }
 
       @namespace
     end
-    attr_writer :namespace
+
+    def namespace= ns
+      callback{
+        @namespace = ns
+      }
+    end
 
     # EM hooks
 
@@ -270,12 +277,15 @@ EM.run{
   end
 
   # sorting # XXX why doesn't this work
-  mongo.find(:n > 0, :n.desc) do |results|
+  mongo.find({}, :n.desc) do |results|
     
   end
 
   # switch to editors namespace
   mongo.namespace = 'default.editors'
+  
+  # delete all rows
+  mongo.remove({})
   
   # insert editors with platforms supported tags
   mongo.insert(:_id => '000000000000000000000101', :name => :textmate, :platform => [:osx])
@@ -293,7 +303,7 @@ EM.run{
     mongo.insert(:name => 'platforms', :ns => 'default.editors', :key => { :platform => true })
   end
 
-  # find objects with linux tag
+  # find objects with linux tag # XXX how can i find an object with two tags?
   mongo.find(:platform => :linux) do |results|
     
   end
