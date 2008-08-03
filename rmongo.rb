@@ -266,6 +266,11 @@ EM.run{
   mongo.insert(:_id => '000000000000000000000014', :n => 5, :object => { :boolean => true })
   mongo.insert(:_id => '000000000000000000000015', :n => 6, :symbol => :Constant)
 
+  # add index on n
+  mongo.namespace('default.system.indexes') do
+    mongo.insert(:name => 'n', :ns => 'default.test', :key => { :n => true })
+  end
+
   # simple searches
   mongo.find(:n > 1) do |results|
     
@@ -276,7 +281,7 @@ EM.run{
     
   end
 
-  # sorting # XXX why doesn't this work
+  # sorting # XXX requires an index to sort
   mongo.find({}, :n.desc) do |results|
     
   end
@@ -293,7 +298,7 @@ EM.run{
   mongo.insert(:_id => '000000000000000000000103', :name => :eclipse,  :platform => [:osx, :linux, :windows])
   mongo.insert(:_id => '000000000000000000000104', :name => :notepad,  :platform => [:windows])
   
-  # find all editors # XXX why does this find objects outside the namespace
+  # find all editors
   mongo.find({}) do |results|
     
   end
@@ -387,41 +392,25 @@ FIND {:n=>{:$in=>[1, 3, 5]}} => # XXX why does this match objects that have no v
 
 --------------------------------------------------------------------------------
 
-FIND {:orderby=>{:n=>-1}, :query=>{:n=>{:$gt=>0}}} => # XXX why doesn't this work
+FIND {:orderby=>{:n=>-1}, :query=>{}} =>
 
-[{:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
- {:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
- {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
- {:_id=>"000000000000000000000013", :n=>4.0, :null=>nil},
- {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}},
- {:_id=>"000000000000000000000015", :adf=>"123", :n=>6.0}]
+[{:symbol=>:Constant, :n=>6.0, :_id=>"000000000000000000000015"},
+ {:object=>{:boolean=>true}, :n=>5.0, :_id=>"000000000000000000000014"},
+ {:null=>nil, :n=>4.0, :_id=>"000000000000000000000013"},
+ {:number=>112233.445566, :n=>3.0, :_id=>"000000000000000000000012"},
+ {:n=>2.0, :_id=>"000000000000000000000011", :string=>"ruby and js"},
+ {:array=>[1.0, 2.0, 3.0], :n=>1.0, :_id=>"000000000000000000000010"}]
 
 --------------------------------------------------------------------------------
 
-FIND {} => # XXX why does this find objects outside the namespace
+FIND {} =>
 
-[{:_id=>"000000000000000000000001", :hello=>"world"},
- {:_id=>"000000000000000000000002",
-  :hash=>{:boolean=>true},
-  :regex=>/abc$/ix,
-  :float=>123.456,
-  :symbol=>:name,
-  :array=>[1.0, 2.0, 3.0],
-  :nil=>nil,
-  :string=>"hello world",
-  :time=>Sat Aug 02 02:08:27 -0700 2008},
- {:_id=>"000000000000000000000010", :array=>[1.0, 2.0, 3.0], :n=>1.0},
- {:_id=>"000000000000000000000011", :n=>2.0, :string=>"ruby and js"},
- {:_id=>"000000000000000000000012", :number=>112233.445566, :n=>3.0},
- {:_id=>"000000000000000000000013", :n=>4.0, :null=>nil},
- {:_id=>"000000000000000000000014", :n=>5.0, :object=>{:boolean=>true}},
- {:_id=>"000000000000000000000015", :adf=>"123", :n=>6.0},
- {:_id=>"000000000000000000000101", :name=>:textmate, :platform=>[:osx]},
- {:_id=>"000000000000000000000102", :name=>:vim, :platform=>[:osx, :linux]},
- {:_id=>"000000000000000000000103",
-  :name=>:eclipse,
+[{:name=>:textmate, :_id=>"000000000000000000000101", :platform=>[:osx]},
+ {:name=>:vim, :_id=>"000000000000000000000102", :platform=>[:osx, :linux]},
+ {:name=>:eclipse,
+  :_id=>"000000000000000000000103",
   :platform=>[:osx, :linux, :windows]},
- {:_id=>"000000000000000000000104", :name=>:notepad, :platform=>[:windows]}]
+ {:name=>:notepad, :_id=>"000000000000000000000104", :platform=>[:windows]}]
 
 --------------------------------------------------------------------------------
 
