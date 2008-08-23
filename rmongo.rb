@@ -276,12 +276,12 @@ EM.run{
     
   end
 
-  # in queries # XXX why does this match objects that have no value for n
+  # in queries
   mongo.find :n.in([ 1,3,5 ]) do |results|
     
   end
 
-  # sorting # XXX requires an index to sort
+  # sorting (sorting is faster with an index)
   mongo.find({}, :n.desc) do |results|
     
   end
@@ -374,7 +374,7 @@ FIND {:n=>{:$gt=>1}} =>
 
 --------------------------------------------------------------------------------
 
-FIND {:n=>{:$in=>[1, 3, 5]}} => # XXX why does this match objects that have no value for n
+FIND {:n=>{:$in=>[1, 3, 5]}} =>
 
 [{:_id=>"000000000000000000000001", :hello=>"world"},
  {:_id=>"000000000000000000000002",
