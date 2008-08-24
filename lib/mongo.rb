@@ -138,6 +138,14 @@ EM.describe Mongo do
     end
   end
 
+  should 'find ranges' do
+    @numbers.find(:num > 2, :num < 4) do |res|
+      res.first[:num].should == 3
+      res.size.should == 1
+      done
+    end
+  end
+  
 end
 
 __END__

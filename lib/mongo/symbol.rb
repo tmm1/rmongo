@@ -17,11 +17,11 @@ class Symbol
   end
 
   def asc
-    { self => 1 }
+    { :orderby => { self => 1 } }
   end
   
   def desc
-    { self => -1 }
+    { :orderby => { self => -1 } }
   end
 
 end
