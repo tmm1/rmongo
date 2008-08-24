@@ -23,8 +23,8 @@ end
 
 EM.describe Mongo do
 
-  @mongo = Mongo.connect
-  @db = Mongo('test').db
+  @mongo = Mongo('test')
+  @db = @mongo.db
   
   should 'remove all objects' do
     @db.remove({})
@@ -47,7 +47,97 @@ EM.describe Mongo do
       done
     end
   end
+
+  should 'insert complex objects' do
+    obj = {
+      :array => [1,2,3],
+      :float => 123.456,
+      :hash => {:boolean => true},
+      :nil => nil,
+      :symbol => :name,
+      :string => 'hello world',
+      :time => Time.at(Time.now.to_i),
+      :regex => /abc$/ix
+    }
+    
+    obj = @db.insert obj
+    
+    @db.find(:_id => obj[:_id]) do |ret|
+      ret.should == [ obj ]
+      done
+    end
+  end
+
+  should 'find objects using nested properties' do
+    @db.insert :name => 'Google',
+               :address => {
+                 :city => 'Mountain View',
+                 :state => 'California'
+               }
+
+    @db.first(:'address.city' => 'Mountain View') do |res|
+      res[:name].should == 'Google'
+      done
+    end
+  end
   
+  @numbers = @mongo.numbers
+  @numbers.remove({})
+
+  { 1 => 'one',
+    2 => 'two',
+    3 => 'three',
+    4 => 'four',
+    5 => 'five',
+    6 => 'six',
+    7 => 'seven',
+    8 => 'eight',
+    9 => 'nine' }.each do |num, word|
+                    @numbers.insert :num => num, :word => word
+                  end
+  
+  should 'find objects with specific values' do
+    @numbers.find :num.in([1,3,5]) do |res|
+      res.size.should == 3
+      res.map{|r| r[:num] }.sort.should == [1,3,5]
+      done
+    end
+  end
+
+  should 'add indexes' do
+    @numbers.index :num
+    @numbers.indexes do |res|
+      res.first[:name].should == 'num'
+      res.size.should == 1
+      done
+    end
+  end
+  
+  should 'return sorted results' do
+    @numbers.find({}, :num.desc) do |res|
+      res.first[:num].should == 9
+      res.last[:num].should  == 1
+      res.size.should == 9
+      done
+    end
+  end
+
+  should 'limit returned results' do
+    @numbers.find({}, :num.asc, :limit => 1) do |res|
+      res.first[:num].should == 1
+      res.size.should == 1
+      done
+    end
+  end
+
+  should 'skip rows with limit' do
+    @numbers.find({}, :num.asc, :limit => 1, :skip => 1) do |res|
+      res.first[:num].should == 2
+      res.size.should == 1
+      done
+    end
+  end
+
 end
 
 __END__

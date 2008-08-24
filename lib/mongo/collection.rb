@@ -41,12 +41,12 @@ module Mongo
       end
     end
 
-    def insert obj
+    def insert obj, add_id = true
       obj[:_id] ||= if defined? SecureRandom
                       SecureRandom.hex(12)
                     else
                       UUID.new(:compact).gsub(/^(.{20})(.{8})(.{4})$/){ $1+$3 }
-                    end
+                    end if add_id
 
       @client.send 2002, :int,     reserved = 0,
                          :cstring, @ns,
@@ -59,6 +59,19 @@ module Mongo
                           :cstring, @ns,
                           :int,     0,
                           :bson,    obj
+    end
+
+    def index obj
+      obj = { obj => true } if obj.is_a? Symbol
+
+      indexes.insert({ :name => 'num',
+                       :ns => @ns,
+                       :key => obj }, false)
+    end
+
+    def indexes obj = {}, &blk
+      @indexes ||= self.class.new("#{@ns.split('.').first}.system.indexes")
+      blk ? @indexes.find(obj, &blk) : @indexes
     end
 
     def method_missing meth
