@@ -14,7 +14,7 @@ module Mongo
       @id = 0
       @responses = {}
       @namespace = 'default.test'
-      timeout 0.5
+      timeout opts[:timeout] || 0.5
       errback{
         raise Error, 'could not connect to server'
       }
@@ -288,7 +288,7 @@ EM.run{
 
   # switch to editors namespace
   mongo.namespace = 'default.editors'
-  
+
   # delete all rows
   mongo.remove({})
   
@@ -306,6 +306,11 @@ EM.run{
   # add multikey index on platforms property
   mongo.namespace('default.system.indexes') do
     mongo.insert(:name => 'platforms', :ns => 'default.editors', :key => { :platform => true })
+  end
+
+  # match multiple tags
+  mongo.find(:platform.in [:linux, :osx]) do |results|
+    
   end
 
   # find objects with linux tag # XXX how can i find an object with two tags?

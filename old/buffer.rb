@@ -274,8 +274,8 @@ module Mongo
 end
 
 if $0 =~ /bacon/ or $0 == __FILE__
-  require 'rubygems'
   require 'bacon'
+  Bacon.summary_on_exit
   include Mongo
 
   describe Buffer do
