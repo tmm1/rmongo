@@ -87,7 +87,7 @@ module Mongo
 
     def indexes obj = {}, &blk
       @indexes ||= self.class.new("#{@ns.split('.').first}.system.indexes")
-      blk ? @indexes.find(obj, &blk) : @indexes
+      blk ? @indexes.find(obj.merge(:ns => @ns), &blk) : @indexes
     end
 
     def method_missing meth

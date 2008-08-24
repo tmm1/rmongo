@@ -146,6 +146,26 @@ EM.describe Mongo do
     end
   end
   
+  @editors = @mongo.editors
+  @editors.remove({})
+  @editors.index :platform
+
+  [ { :name => :textmate, :platform => [:osx] },
+    { :name => :vim,      :platform => [:osx, :linux] },
+    { :name => :eclipse,  :platform => [:osx, :linux, :windows] },
+    { :name => :notepad,  :platform => [:windows] }
+  ].each do |obj|
+    @editors.insert obj
+  end
+
+  should 'find objects with given tag' do
+    @editors.find(:platform => :osx) do |res|
+      res.size.should == 3
+      res.map{|r| r[:name].to_s }.sort.should == %w[ eclipse textmate vim ]
+      done
+    end
+  end
+  
 end
 
 __END__
