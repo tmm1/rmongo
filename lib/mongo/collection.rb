@@ -12,6 +12,8 @@ module Mongo
       @ns = ns.to_s.freeze
     end
 
+    attr_reader :client
+
     # find {:a => 1}, :b < 2, :a.asc, :b.desc, :limit => 10, :skip => 5
     def find *args, &blk
       opts = Hash.new(0)
@@ -91,6 +93,7 @@ module Mongo
     end
 
     def method_missing meth
+      raise ArgumentError, 'collection cannot take block' if block_given?
       (@subns ||= {})[meth] ||= self.class.new("#{@ns}.#{meth}", @client)
     end
 

@@ -6,18 +6,27 @@ module Mongo
       @settings = opts
       @id = 0
       @responses = {}
+      @connected = false
 
-      timeout opts[:timeout] || 0.5
-      errback{
+      @on_close = proc{
         raise Error, 'could not connect to server'
       }
+
+      timeout opts[:timeout] || 0.5
+      errback{ @on_close.call }
     end
+
+    def connected?() @connected end
 
     # EM hooks
 
     def connection_completed
       log 'connected'
       @buf = Buffer.new
+      @connected = true
+      @on_close = proc{
+        raise Error, 'disconnected from server'
+      }
       succeed
     end
 
@@ -48,7 +57,7 @@ module Mongo
         end
 
         # close if no more responses pending
-        @on_close.succeed if @on_close and @responses.size == 0
+        close_connection if @close_pending and @responses.size == 0
       end
     end
 
@@ -59,16 +68,19 @@ module Mongo
 
     def unbind
       log 'disconnected'
+      @connected = false
+      @on_close.call
     end
 
     # connection
 
     def close
-      @on_close = EM::DefaultDeferrable.new
-      @on_close.callback{
+      @on_close = proc{ yield if block_given? }
+      if @responses.empty?
         close_connection
-        yield if block_given?
-      }
+      else
+        @close_pending = true
+      end
     end
 
     def send command_id, *args, &blk
