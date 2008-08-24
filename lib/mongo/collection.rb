@@ -1,3 +1,9 @@
+begin
+  require 'securerandom'
+rescue LoadError
+  require 'uuid'
+end
+
 module Mongo
   class Collection
 
@@ -38,8 +44,11 @@ module Mongo
     end
 
     def insert obj
-      obj[:_id] ||= UUID.new(:compact).gsub(/^(.{20})(.{8})(.{4})$/){ $1+$3 }
-      p [:inserting, obj]
+      obj[:_id] ||= if defined? SecureRandom
+                      SecureRandom.hex(12)
+                    else
+                      UUID.new(:compact).gsub(/^(.{20})(.{8})(.{4})$/){ $1+$3 }
+                    end
 
       @client.send 2002, :int,     reserved = 0,
                          :cstring, @ns,

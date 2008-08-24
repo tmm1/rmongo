@@ -2,7 +2,6 @@ require 'pp'
 require 'ext/em'
 require 'ext/fiber18'
 require 'ext/emspec'
-require 'uuid'
 
 module Mongo
   class Error < Exception; end
