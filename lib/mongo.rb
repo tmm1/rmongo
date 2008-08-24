@@ -23,7 +23,8 @@ end
 
 EM.describe Mongo do
 
-  @db = Mongo(:ruby).tests
+  @mongo = Mongo.connect
+  @db = Mongo('test').db
   
   should 'remove all objects' do
     @db.remove({})
@@ -42,8 +43,6 @@ EM.describe Mongo do
     obj[:_id].length.should == 24
 
     @db.first({}) do |ret|
-      p ret[:_id]
-      p obj[:_id]
       ret.should == obj
       done
     end

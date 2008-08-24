@@ -12,9 +12,7 @@ module Mongo
       @ns = ns.to_s.freeze
     end
 
-    # commands
-
-    # find {}, :a.asc, :b.desc, :limit => 10, :skip => 5
+    # find {:a => 1}, :b < 2, :a.asc, :b.desc, :limit => 10, :skip => 5
     def find obj, *args, &blk
       opts = Hash.new(0)
       opts.update(args.pop) if args.size > 1 and args.last.keys.find{|k| [:limit, :skip].include? k }

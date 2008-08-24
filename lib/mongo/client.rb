@@ -28,23 +28,20 @@ module Mongo
       until @buf.empty?
         # packet size
         size = @buf.read(:int)
-        # log :size => size
 
+        # XXX put size back into the buffer!!
         break unless @buf.size >= size-4
 
         # header
         id, response, operation = @buf.read(:int, :int, :int)
-        # log :id => id, :response => response, :operation => operation
 
         # body
         reserved, cursor, start, num = @buf.read(:int, :longlong, :int, :int)
-        # log :reserved => reserved, :cursor => cursor, :start => start, :num => num
 
         # bson results
         results = (1..num).map do
           @buf.read(:bson)
         end
-        # log :results => results
 
         if cb = @responses.delete(response)
           cb.call(results)
