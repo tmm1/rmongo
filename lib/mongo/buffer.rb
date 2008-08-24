@@ -70,7 +70,8 @@ module Mongo
           # end.map do |num|
           #   num.to_s(16).rjust(8,'0')
           # end.join('')
-          _read(12, 'i*').map do |num|
+
+          _read(12, 'I*').map do |num|
             num.to_s(16).rjust(8,'0')
           end.join('')
         when :bson
