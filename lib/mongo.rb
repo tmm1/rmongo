@@ -173,4 +173,4 @@ EM.describe Mongo do
     }
   end
   
-end
+end if __FILE__ == $0
