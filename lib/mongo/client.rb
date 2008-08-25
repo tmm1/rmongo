@@ -9,10 +9,10 @@ module Mongo
       @connected = false
 
       @on_close = proc{
-        raise Error, 'could not connect to server'
+        raise Error, "could not connect to server #{opts[:host]}:#{opts[:port]}"
       }
 
-      timeout opts[:timeout] || 0.5
+      timeout opts[:timeout] if opts[:timeout]
       errback{ @on_close.call }
     end
 
@@ -69,7 +69,7 @@ module Mongo
     def unbind
       log 'disconnected'
       @connected = false
-      @on_close.call
+      @on_close.call unless $!
     end
 
     # connection
