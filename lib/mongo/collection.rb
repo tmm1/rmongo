@@ -82,7 +82,7 @@ module Mongo
     def index obj
       obj = { obj => true } if obj.is_a? Symbol
 
-      indexes.insert({ :name => 'num',
+      indexes.insert({ :name => obj.keys.map{|o| o.to_s }.sort.join('_'),
                        :ns => @ns,
                        :key => obj }, false)
     end
